@@ -25,10 +25,19 @@ export default function SurveyForm({ questions, onSubmit }: SurveyFormProps) {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Parse options for each question
+  // Parse options for each question and add dimension info
+  const getDimension = (sortOrder: number) => {
+    if (sortOrder <= 3) return { name: '战略认知', color: 'bg-blue-100 text-blue-700' };
+    if (sortOrder <= 6) return { name: '场景试点', color: 'bg-green-100 text-green-700' };
+    if (sortOrder <= 9) return { name: '流程嵌入', color: 'bg-purple-100 text-purple-700' };
+    if (sortOrder <= 12) return { name: '平台与投入', color: 'bg-orange-100 text-orange-700' };
+    return { name: '业务重塑', color: 'bg-red-100 text-red-700' };
+  };
+
   const parsedQuestions = questions.map(q => ({
     ...q,
-    parsedOptions: JSON.parse(q.options)
+    parsedOptions: JSON.parse(q.options),
+    dimension: getDimension(q.sort_order)
   }));
 
   // Add user info step at the beginning
@@ -77,7 +86,7 @@ export default function SurveyForm({ questions, onSubmit }: SurveyFormProps) {
       <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-md mx-auto px-4 py-3">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-sm font-medium text-gray-900">员工满意度调研</h1>
+            <h1 className="text-sm font-medium text-gray-900">企业 AI Native 成熟度诊断</h1>
             <span className="text-xs text-gray-500">
               {currentStep + 1} / {totalSteps}
             </span>
@@ -147,9 +156,14 @@ export default function SurveyForm({ questions, onSubmit }: SurveyFormProps) {
           {currentQuestion && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <div className="mb-6">
-                <span className="inline-block px-2 py-0.5 bg-[#fef3c7] text-[#92400e] text-xs font-medium rounded mb-2">
-                  第 {currentStep} 题
-                </span>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="inline-block px-2 py-0.5 bg-[#fef3c7] text-[#92400e] text-xs font-medium rounded">
+                    第 {currentStep} 题
+                  </span>
+                  <span className={`inline-block px-2 py-0.5 ${currentQuestion.dimension.color} text-xs font-medium rounded`}>
+                    {currentQuestion.dimension.name}
+                  </span>
+                </div>
                 <h2 className="text-lg font-semibold text-gray-900">
                   {currentQuestion.question_text}
                 </h2>
