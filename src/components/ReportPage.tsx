@@ -99,6 +99,22 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
     return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
+  // 把任意 CSS 颜色（含 oklch/lab）统一转成 html2canvas 能解析的 rgb/hex
+  const normalizeColorForPDF = (color: string): string => {
+    if (!color || color === 'none' || color === 'transparent' || color === 'rgba(0, 0, 0, 0)') {
+      return color;
+    }
+    // 已经是 rgb/rgba/hex/hsl 等常用格式直接返回
+    if (/^(rgb|rgba|#|hsl|hsla)/i.test(color.trim())) {
+      return color;
+    }
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return color;
+    ctx.fillStyle = color;
+    return ctx.fillStyle || color;
+  };
+
   const downloadPDF = async () => {
     if (!reportContentRef.current || !report) return;
     setDownloading(true);
@@ -119,7 +135,7 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
         scrollX: 0,
         scrollY: -window.scrollY,
         onclone: (clonedDoc) => {
-          // html2canvas 不支持 oklch/lab 颜色函数，把克隆节点的颜色内联为 rgb/rgba
+          // html2canvas 不支持 oklch/lab 颜色函数，把克隆节点的颜色内联为 rgb/hex
           clonedDoc.querySelectorAll('*').forEach((el) => {
             const computed = window.getComputedStyle(el);
             const colorProps = [
@@ -139,8 +155,8 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
             colorProps.forEach((prop) => {
               try {
                 const value = computed.getPropertyValue(prop);
-                if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'none') {
-                  styleEl.style.setProperty(prop, value);
+                if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'none' && value !== 'transparent') {
+                  styleEl.style.setProperty(prop, normalizeColorForPDF(value));
                 }
               } catch {
                 // 某些属性对非 SVG 元素无效，忽略
