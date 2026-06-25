@@ -62,6 +62,7 @@ export interface ReportData {
   sessionId: string;
   userName: string;
   userCompany: string;
+  evaluatedAt: string;    // ISO 8601 评测完成时间
   dimensions: DimensionScore[];
   totalScore: number;     // 百分制
   rawTotal: number;       // 原始 15-75
@@ -330,6 +331,7 @@ export function generateReport(
   sessionId: string,
   userName: string,
   userCompany: string,
+  evaluatedAt: string,
   answers: Array<{
     questionId: number;
     questionText: string;
@@ -404,6 +406,7 @@ export function generateReport(
     sessionId,
     userName,
     userCompany,
+    evaluatedAt,
     dimensions: DIMENSIONS.map(d => dimMap[d.key]),
     totalScore,
     rawTotal,

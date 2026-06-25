@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { ReportData, DimensionScore, GapItem, InsightItem } from '@/lib/scoring';
 
 interface ReportPageProps {
@@ -13,6 +15,8 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
   const [activeSection, setActiveSection] = React.useState('radar');
+  const [downloading, setDownloading] = React.useState(false);
+  const reportContentRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     fetchReport();
@@ -88,6 +92,56 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+  };
+
+  const downloadPDF = async () => {
+    if (!reportContentRef.current || !report) return;
+    setDownloading(true);
+    try {
+      const element = reportContentRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#F5F2ED',
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const imgWidth = pageWidth - margin * 2;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', margin, position + margin, imgWidth, imgHeight);
+      heightLeft -= pageHeight - margin * 2;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight + margin;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight - margin * 2;
+      }
+
+      const company = (report.userCompany || report.userName || '企业').replace(/\s+/g, '_');
+      pdf.save(`AI成熟度诊断报告_${company}_${formatDate(report.evaluatedAt)}.pdf`);
+    } catch (err) {
+      console.error('PDF download failed:', err);
+      alert('PDF 生成失败，请稍后重试');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F2ED] text-stone-800" style={{ fontFamily: "'Plus Jakarta Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif" }}>
       {/* Top Nav */}
@@ -114,12 +168,33 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
                 </button>
               ))}
             </div>
+            <button
+              onClick={downloadPDF}
+              disabled={downloading}
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-[#C45C3E] text-white hover:bg-[#A34D33] transition-colors disabled:opacity-50"
+            >
+              {downloading ? (
+                <>
+                  <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+                  生成中…
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  下载 PDF
+                </>
+              )}
+            </button>
           </div>
         </div>
       </nav>
 
-      {/* Hero */}
-      <header className="bg-[#1A1A1A] text-white relative overflow-hidden">
+      {/* Report content for PDF capture */}
+      <div ref={reportContentRef}>
+        {/* Hero */}
+        <header className="bg-[#1A1A1A] text-white relative overflow-hidden">
         <div className="max-w-6xl mx-auto px-4 lg:px-6 py-12 lg:py-16">
           <div className="flex flex-col lg:flex-row gap-8 lg:gap-16 items-start">
             {/* Level Badge */}
@@ -136,10 +211,12 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
 
             <div className="flex-1 space-y-5 pt-2">
               <div>
-                <div className="flex items-center gap-2 text-xs text-white/50 uppercase tracking-widest mb-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-white/50 uppercase tracking-widest mb-3">
                   <span>EasyMeter 出品</span>
                   <span className="w-8 h-px bg-white/20" />
                   <span>AI MATURITY DIAGNOSTIC</span>
+                  <span className="w-8 h-px bg-white/20 hidden sm:inline-block" />
+                  <span>评测日期 {formatDate(report.evaluatedAt)}</span>
                 </div>
                 <h1 className="text-3xl lg:text-4xl font-bold tracking-tight leading-tight">
                   企业 AI 转型<br />成熟度诊断报告
@@ -165,6 +242,26 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
                   <span className="ml-2 text-white font-semibold">EasyMeter</span>
                 </div>
               </div>
+
+              <button
+                onClick={downloadPDF}
+                disabled={downloading}
+                className="md:hidden inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors disabled:opacity-50 mt-2"
+              >
+                {downloading ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border border-white/30 border-t-white rounded-full animate-spin" />
+                    生成 PDF 中…
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    下载 PDF 报告
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -330,6 +427,7 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
           <ActionSection plan={report.actionPlan} />
         </section>
       </main>
+      </div>
 
       {/* Footer */}
       <footer className="bg-[#1A1A1A] text-white/50 py-10 mt-20">

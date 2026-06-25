@@ -10,7 +10,7 @@ export async function GET(
     const { sessionId } = await params;
 
     // 获取答卷数据
-    const response = getResponseBySessionId(sessionId) as { id: number; user_name: string; user_company: string } | undefined;
+    const response = getResponseBySessionId(sessionId) as { id: number; user_name: string; user_company: string; completed_at: string } | undefined;
     if (!response) {
       return NextResponse.json(
         { success: false, error: '未找到该答卷' },
@@ -48,6 +48,7 @@ export async function GET(
       sessionId,
       response.user_name || '',
       response.user_company || '',
+      response.completed_at || new Date().toISOString(),
       answers
     );
 
