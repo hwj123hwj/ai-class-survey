@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
 import { ReportData, DimensionScore, GapItem, InsightItem } from '@/lib/scoring';
 
@@ -140,31 +140,20 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
         scrollX: 0,
         scrollY: -window.scrollY,
         onclone: (clonedDoc) => {
-          // html2canvas 不支持 oklch/lab 颜色函数，把克隆节点的颜色内联为 rgb/hex
-          clonedDoc.querySelectorAll('*').forEach((el) => {
+          // html2canvas-pro 原生支持 oklch/lab/oklab，无需手动转换
+          // 但仍需把 SVG fill/stroke 的 computed style 内联，因为 SVG 属性不走 CSS cascade
+          clonedDoc.querySelectorAll('svg, svg *').forEach((el) => {
             const computed = window.getComputedStyle(el);
-            const colorProps = [
-              'color',
-              'background-color',
-              'border-color',
-              'border-top-color',
-              'border-right-color',
-              'border-bottom-color',
-              'border-left-color',
-              'outline-color',
-              'fill',
-              'stroke',
-            ];
-            const styleEl = el as unknown as HTMLElement | SVGElement;
+            const styleEl = el as unknown as SVGElement;
             if (!styleEl.style) return;
-            colorProps.forEach((prop) => {
+            ['fill', 'stroke'].forEach((prop) => {
               try {
                 const value = computed.getPropertyValue(prop);
-                if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'none' && value !== 'transparent') {
-                  styleEl.style.setProperty(prop, normalizeColorForPDF(value));
+                if (value && value !== 'none') {
+                  styleEl.style.setProperty(prop, value);
                 }
               } catch {
-                // 某些属性对非 SVG 元素无效，忽略
+                // ignore
               }
             });
           });
