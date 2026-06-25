@@ -11,12 +11,15 @@ build:
   stage: build
   tags:
     - deploy
+  variables:
+    NEXT_BUILD_WORKERS: 1
   cache:
     key: ${CI_COMMIT_REF_SLUG}
     paths:
       - node_modules/
   script:
     - npm ci
+    - rm -f data/survey.db data/survey.db-*
     - npm run build
   artifacts:
     paths:
