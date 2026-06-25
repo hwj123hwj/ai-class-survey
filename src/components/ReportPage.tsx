@@ -16,6 +16,7 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
   const [error, setError] = React.useState('');
   const [activeSection, setActiveSection] = React.useState('radar');
   const [downloading, setDownloading] = React.useState(false);
+  const [pdfError, setPdfError] = React.useState('');
   const reportContentRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -101,11 +102,14 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
   const downloadPDF = async () => {
     if (!reportContentRef.current || !report) return;
     setDownloading(true);
+    setPdfError('');
     try {
       const element = reportContentRef.current;
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 1.5,
         useCORS: true,
+        allowTaint: true,
+        logging: true,
         backgroundColor: '#F5F2ED',
         windowWidth: element.scrollWidth,
         windowHeight: element.scrollHeight,
@@ -135,8 +139,9 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
       const company = (report.userCompany || report.userName || '企业').replace(/\s+/g, '_');
       pdf.save(`AI成熟度诊断报告_${company}_${formatDate(report.evaluatedAt)}.pdf`);
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error('PDF download failed:', err);
-      alert('PDF 生成失败，请稍后重试');
+      setPdfError(`PDF 生成失败：${message}`);
     } finally {
       setDownloading(false);
     }
@@ -191,6 +196,26 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
         </div>
       </nav>
 
+      {pdfError && (
+        <div className="bg-red-50 border-b border-red-100 px-4 py-3">
+          <div className="max-w-6xl mx-auto flex items-start gap-3">
+            <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="flex-1">
+              <p className="text-sm text-red-700">{pdfError}</p>
+              <p className="text-xs text-red-500 mt-1">如果持续失败，请打开浏览器控制台(F12→Console)把报错截图发给技术支持。</p>
+            </div>
+            <button
+              onClick={() => setPdfError('')}
+              className="text-xs text-red-600 hover:text-red-800 underline shrink-0"
+            >
+              关闭
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Report content for PDF capture */}
       <div ref={reportContentRef}>
         {/* Hero */}
@@ -215,8 +240,6 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
                   <span>EasyMeter 出品</span>
                   <span className="w-8 h-px bg-white/20" />
                   <span>AI MATURITY DIAGNOSTIC</span>
-                  <span className="w-8 h-px bg-white/20 hidden sm:inline-block" />
-                  <span>评测日期 {formatDate(report.evaluatedAt)}</span>
                 </div>
                 <h1 className="text-3xl lg:text-4xl font-bold tracking-tight leading-tight">
                   企业 AI 转型<br />成熟度诊断报告
@@ -227,7 +250,7 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
                 15 题自检 · 5 维度雷达 · 5 级成熟度模型。这套模型量的不是“你用了多少 AI”，而是你的组织被 AI 重构了多深——从 L1 认知探索，到 L5 长成一个 AI Native 组织。
               </p>
 
-              <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm pt-1">
+              <div className="flex flex-wrap gap-x-8 gap-y-3 text-sm pt-1">
                 <div>
                   <span className="text-white/40">受测企业</span>
                   <span className="ml-2 text-white font-semibold">{report.userCompany || report.userName || '未填写'}</span>
@@ -240,6 +263,13 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
                 <div>
                   <span className="text-white/40">诊断引擎</span>
                   <span className="ml-2 text-white font-semibold">EasyMeter</span>
+                </div>
+                <div className="flex items-center gap-2 bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 -my-1">
+                  <svg className="w-4 h-4 text-[#C45C3E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-white/60 text-xs">评测日期</span>
+                  <span className="text-white font-semibold">{formatDate(report.evaluatedAt)}</span>
                 </div>
               </div>
 
