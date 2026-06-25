@@ -99,20 +99,25 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
     return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  // 把任意 CSS 颜色（含 oklch/lab）统一转成 html2canvas 能解析的 rgb/hex
+  // 把任意 CSS 颜色（含 oklch/lab/color-mix）统一转成 html2canvas 能解析的 rgb/rgba
   const normalizeColorForPDF = (color: string): string => {
     if (!color || color === 'none' || color === 'transparent' || color === 'rgba(0, 0, 0, 0)') {
       return color;
     }
-    // 已经是 rgb/rgba/hex/hsl 等常用格式直接返回
-    if (/^(rgb|rgba|#|hsl|hsla)/i.test(color.trim())) {
+    // 简单格式直接返回
+    if (/^(rgb|rgba|#|hsl|hsla)\(/i.test(color.trim())) {
       return color;
     }
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    canvas.width = 1;
+    canvas.height = 1;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return color;
+    ctx.clearRect(0, 0, 1, 1);
     ctx.fillStyle = color;
-    return ctx.fillStyle || color;
+    ctx.fillRect(0, 0, 1, 1);
+    const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+    return a === 255 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
   };
 
   const downloadPDF = async () => {
