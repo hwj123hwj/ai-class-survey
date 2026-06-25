@@ -126,22 +126,31 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
     setPdfError('');
 
     try {
-      const element = reportContentRef.current;
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
       const scale = isMobile ? 1 : 1.5;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const imgWidth = pageWidth - margin * 2;
 
-      const canvas = await html2canvas(element, {
+      // 按区块逐个渲染，每个 section 从新页开始，避免拦腰截断
+      const heroEl = reportContentRef.current.querySelector('header');
+      const sectionEls = Array.from(reportContentRef.current.querySelectorAll('section'));
+
+      const blocks: Element[] = [];
+      if (heroEl) blocks.push(heroEl);
+      blocks.push(...sectionEls);
+
+      const renderOpts = {
         scale,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#F5F2ED',
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
+        windowWidth: reportContentRef.current.scrollWidth,
         scrollX: 0,
         scrollY: -window.scrollY,
-        onclone: (clonedDoc) => {
-          // html2canvas-pro 原生支持 oklch/lab/oklab，无需手动转换
-          // 但仍需把 SVG fill/stroke 的 computed style 内联，因为 SVG 属性不走 CSS cascade
+        onclone: (clonedDoc: Document) => {
           clonedDoc.querySelectorAll('svg, svg *').forEach((el) => {
             const computed = window.getComputedStyle(el);
             const styleEl = el as unknown as SVGElement;
@@ -158,27 +167,43 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
             });
           });
         },
-      });
+      };
 
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-      const imgWidth = pageWidth - margin * 2;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let isFirstPage = true;
 
-      let heightLeft = imgHeight;
-      let position = margin;
+      for (const block of blocks) {
+        const blockCanvas = await html2canvas(block as HTMLElement, {
+          ...renderOpts,
+          windowHeight: (block as HTMLElement).scrollHeight,
+        });
 
-      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight - margin * 2;
+        const blockImgData = blockCanvas.toDataURL('image/png');
+        const blockImgHeight = (blockCanvas.height * imgWidth) / blockCanvas.width;
 
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight + margin;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight - margin * 2;
+        if (blockImgHeight <= pageHeight - margin * 2) {
+          // 单页能放下
+          if (!isFirstPage) pdf.addPage();
+          pdf.addImage(blockImgData, 'PNG', margin, margin, imgWidth, blockImgHeight);
+          isFirstPage = false;
+        } else {
+          // 多页块：从当前页开始，溢出部分翻页继续
+          let heightLeft = blockImgHeight;
+          let position = margin;
+
+          if (!isFirstPage) pdf.addPage();
+
+          pdf.addImage(blockImgData, 'PNG', margin, position, imgWidth, blockImgHeight);
+          heightLeft -= pageHeight - margin * 2;
+
+          while (heightLeft > 0) {
+            position = heightLeft - blockImgHeight + margin;
+            pdf.addPage();
+            pdf.addImage(blockImgData, 'PNG', margin, position, imgWidth, blockImgHeight);
+            heightLeft -= pageHeight - margin * 2;
+          }
+
+          isFirstPage = false;
+        }
       }
 
       const company = (report.userCompany || report.userName || '企业').replace(/\s+/g, '_');
