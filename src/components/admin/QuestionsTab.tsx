@@ -186,31 +186,29 @@ export default function QuestionsTab() {
                     <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
                       第 {question.sort_order} 题
                     </span>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                      question.is_active
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-100 text-gray-500'
-                    }`}>
-                      {question.is_active ? '启用' : '禁用'}
-                    </span>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-3">
                     <button
                       onClick={() => handleEdit(question)}
-                      className="text-sm text-blue-600 hover:text-blue-700"
+                      className="text-sm text-blue-600 hover:text-blue-700 cursor-pointer"
                     >
                       编辑
                     </button>
                     <button
                       onClick={() => handleToggleActive(question.id, question.is_active)}
-                      className={`text-sm ${
+                      className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors cursor-pointer focus:outline-none ${
                         question.is_active
-                          ? 'text-red-600 hover:text-red-700'
-                          : 'text-green-600 hover:text-green-700'
+                          ? 'bg-green-500'
+                          : 'bg-gray-300'
                       }`}
+                      title={question.is_active ? '点击禁用' : '点击启用'}
                     >
-                      {question.is_active ? '禁用' : '启用'}
+                      <span
+                        className={`inline-block w-4 h-4 transform bg-white rounded-full shadow transition-transform ${
+                          question.is_active ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
                     </button>
                   </div>
                 </div>

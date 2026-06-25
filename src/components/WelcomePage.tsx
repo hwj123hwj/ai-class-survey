@@ -1,11 +1,35 @@
 'use client';
 
+import { useState } from 'react';
+
 interface WelcomePageProps {
   onStart: () => void;
+  onLookup: (userName: string, userPhone: string) => Promise<boolean>;
   questionCount: number;
 }
 
-export default function WelcomePage({ onStart, questionCount }: WelcomePageProps) {
+export default function WelcomePage({ onStart, onLookup, questionCount }: WelcomePageProps) {
+  const [showLookup, setShowLookup] = useState(false);
+  const [lookupName, setLookupName] = useState('');
+  const [lookupPhone, setLookupPhone] = useState('');
+  const [lookupError, setLookupError] = useState('');
+  const [lookupLoading, setLookupLoading] = useState(false);
+
+  const handleLookup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lookupName.trim() || !lookupPhone.trim()) {
+      setLookupError('请填写姓名和手机号');
+      return;
+    }
+    setLookupLoading(true);
+    setLookupError('');
+    const ok = await onLookup(lookupName.trim(), lookupPhone.trim());
+    setLookupLoading(false);
+    if (!ok) {
+      setLookupError('未找到匹配的答卷记录，请检查姓名和手机号');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#faf9f7] flex items-center justify-center p-4">
       <div className="max-w-md w-full">
@@ -72,6 +96,57 @@ export default function WelcomePage({ onStart, questionCount }: WelcomePageProps
         >
           开始填写 ({questionCount} 题)
         </button>
+
+        {/* Lookup toggle */}
+        <div className="text-center mt-6">
+          {!showLookup ? (
+            <button
+              onClick={() => setShowLookup(true)}
+              className="text-sm text-gray-400 hover:text-gray-600 underline underline-offset-4 transition-colors"
+            >
+              已有报告？点击查看
+            </button>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <h3 className="text-sm font-semibold text-gray-900 mb-4">查看已有报告</h3>
+              <form onSubmit={handleLookup} className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="您的姓名"
+                  value={lookupName}
+                  onChange={e => { setLookupName(e.target.value); setLookupError(''); }}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                />
+                <input
+                  type="text"
+                  placeholder="您的手机号"
+                  value={lookupPhone}
+                  onChange={e => { setLookupPhone(e.target.value); setLookupError(''); }}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                />
+                {lookupError && (
+                  <p className="text-xs text-red-500">{lookupError}</p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={lookupLoading}
+                    className="flex-1 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {lookupLoading ? '查询中…' : '查看报告'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowLookup(false); setLookupError(''); }}
+                    className="px-4 py-2.5 text-sm text-gray-500 hover:text-gray-700 rounded-lg transition-colors"
+                  >
+                    取消
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+        </div>
 
         {/* Footer */}
         <p className="text-center text-xs text-gray-400 mt-6">

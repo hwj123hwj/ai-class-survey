@@ -46,11 +46,44 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
-    const { id, question_text, question_type, options, sort_order, is_active } = await request.json();
+    const body = await request.json();
+    const { id } = body;
+
+    // 构建动态 UPDATE，只更新传入的字段
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (body.question_text !== undefined) {
+      fields.push('question_text = ?');
+      values.push(body.question_text);
+    }
+    if (body.question_type !== undefined) {
+      fields.push('question_type = ?');
+      values.push(body.question_type);
+    }
+    if (body.options !== undefined) {
+      fields.push('options = ?');
+      values.push(JSON.stringify(body.options));
+    }
+    if (body.sort_order !== undefined) {
+      fields.push('sort_order = ?');
+      values.push(body.sort_order);
+    }
+    if (body.is_active !== undefined) {
+      fields.push('is_active = ?');
+      values.push(body.is_active ? 1 : 0);
+    }
+
+    if (fields.length === 0) {
+      return NextResponse.json({ success: false, error: '没有需要更新的字段' }, { status: 400 });
+    }
+
+    fields.push('updated_at = datetime(\'now\')');
+    values.push(id);
 
     db.prepare(
-      'UPDATE questions SET question_text = ?, question_type = ?, options = ?, sort_order = ?, is_active = ?, updated_at = datetime(\'now\') WHERE id = ?'
-    ).run(question_text, question_type, JSON.stringify(options), sort_order, is_active ? 1 : 0, id);
+      `UPDATE questions SET ${fields.join(', ')} WHERE id = ?`
+    ).run(...values);
 
     return NextResponse.json({ success: true, message: '题目更新成功' });
   } catch (error) {
