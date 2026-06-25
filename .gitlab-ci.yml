@@ -1,0 +1,41 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DEPLOY_HOST: 8.141.97.21
+  DEPLOY_USER: root
+  DEPLOY_PATH: /opt/ai-class-survey
+
+build:
+  stage: build
+  image: node:20
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - node_modules/
+  script:
+    - npm ci
+    - npm run build
+  artifacts:
+    paths:
+      - .next/
+    expire_in: 1 hour
+
+deploy:
+  stage: deploy
+  image: node:20
+  needs:
+    - build
+  before_script:
+    - apt-get update && apt-get install -y openssh-client rsync
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - cp "$SSH_PRIVATE_KEY" ~/.ssh/id_deploy
+    - chmod 600 ~/.ssh/id_deploy
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+  script:
+    - rsync -avz -e "ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes" .next/ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/.next/"
+    - ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" "pm2 restart ai-class-survey"
+  only:
+    - main
