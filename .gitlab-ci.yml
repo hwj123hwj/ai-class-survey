@@ -9,7 +9,8 @@ variables:
 
 build:
   stage: build
-  image: node:20
+  tags:
+    - deploy
   cache:
     key: ${CI_COMMIT_REF_SLUG}
     paths:
@@ -24,11 +25,11 @@ build:
 
 deploy:
   stage: deploy
-  image: node:20
+  tags:
+    - deploy
   needs:
     - build
   before_script:
-    - apt-get update && apt-get install -y openssh-client rsync
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - cp "$SSH_PRIVATE_KEY" ~/.ssh/id_deploy
