@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { ReportData, DimensionScore, GapItem, InsightItem } from '@/lib/scoring';
 
 interface ReportPageProps {
@@ -97,28 +99,87 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
     return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  const downloadPDF = () => {
-    if (!report) return;
+  const downloadPDF = async () => {
+    if (!reportContentRef.current || !report) return;
     setDownloading(true);
     setPdfError('');
 
-    const company = (report.userCompany || report.userName || '企业').replace(/\s+/g, '_');
-    const originalTitle = document.title;
-    document.title = `AI成熟度诊断报告_${company}_${formatDate(report.evaluatedAt)}`;
+    try {
+      const element = reportContentRef.current;
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      const scale = isMobile ? 1 : 1.5;
 
-    // 触发浏览器打印，用户可选择“另存为 PDF”
-    setTimeout(() => {
-      try {
-        window.print();
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error('Print failed:', err);
-        setPdfError(`打印失败：${message}`);
-      } finally {
-        document.title = originalTitle;
-        setDownloading(false);
+      const canvas = await html2canvas(element, {
+        scale,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#F5F2ED',
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        onclone: (clonedDoc) => {
+          // html2canvas 不支持 oklch/lab 颜色函数，把克隆节点的颜色内联为 rgb/rgba
+          clonedDoc.querySelectorAll('*').forEach((el) => {
+            const computed = window.getComputedStyle(el);
+            const colorProps = [
+              'color',
+              'background-color',
+              'border-color',
+              'border-top-color',
+              'border-right-color',
+              'border-bottom-color',
+              'border-left-color',
+              'outline-color',
+              'fill',
+              'stroke',
+            ];
+            const styleEl = el as unknown as HTMLElement | SVGElement;
+            if (!styleEl.style) return;
+            colorProps.forEach((prop) => {
+              try {
+                const value = computed.getPropertyValue(prop);
+                if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'none') {
+                  styleEl.style.setProperty(prop, value);
+                }
+              } catch {
+                // 某些属性对非 SVG 元素无效，忽略
+              }
+            });
+          });
+        },
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const imgWidth = pageWidth - margin * 2;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = margin;
+
+      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight - margin * 2;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight + margin;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight - margin * 2;
       }
-    }, 100);
+
+      const company = (report.userCompany || report.userName || '企业').replace(/\s+/g, '_');
+      pdf.save(`AI成熟度诊断报告_${company}_${formatDate(report.evaluatedAt)}.pdf`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('PDF download failed:', err);
+      setPdfError(`PDF 生成失败：${message}`);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -174,7 +235,7 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  保存 PDF
+                  下载 PDF
                 </>
               )}
             </button>
@@ -267,14 +328,14 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
                 {downloading ? (
                   <>
                     <span className="w-3.5 h-3.5 border border-white/30 border-t-white rounded-full animate-spin" />
-                    准备打印…
+                    生成中…
                   </>
                 ) : (
                   <>
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    保存 PDF 报告
+                    下载 PDF 报告
                   </>
                 )}
               </button>
