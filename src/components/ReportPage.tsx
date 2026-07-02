@@ -340,7 +340,7 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
                 <div>
                   <span className="text-white/40">综合得分</span>
                   <span className="ml-2 text-[#C45C3E] font-bold text-lg">{report.totalScore}</span>
-                  <span className="text-white/40 text-xs">/100</span>
+                  <span className="text-white/40 text-xs">/75</span>
                 </div>
                 <div>
                   <span className="text-white/40">诊断引擎</span>
@@ -458,13 +458,13 @@ export default function ReportPage({ sessionId, onReset }: ReportPageProps) {
               <div className="shrink-0">
                 <div className="text-xs text-stone-400 mb-1">综合得分</div>
                 <div className="text-5xl font-black text-stone-900 tracking-tight">
-                  {report.totalScore}<span className="text-xl text-stone-400 font-medium">/100</span>
+                  {report.totalScore}<span className="text-xl text-stone-400 font-medium">/75</span>
                 </div>
               </div>
               <div className="flex-1 pb-1">
                 <div className="relative h-2 bg-stone-100 rounded-full overflow-hidden">
                   <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-stone-400 via-[#C45C3E] to-[#C45C3E] rounded-full transition-all duration-700"
-                    style={{ width: `${report.totalScore}%` }} />
+                    style={{ width: `${(report.totalScore / 75) * 100}%` }} />
                 </div>
                 <div className="flex justify-between text-xs text-stone-400 mt-2">
                   <span>L1 认知</span>

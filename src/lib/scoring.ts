@@ -64,7 +64,7 @@ export interface ReportData {
   userCompany: string;
   evaluatedAt: string;    // ISO 8601 评测完成时间
   dimensions: DimensionScore[];
-  totalScore: number;     // 百分制
+  totalScore: number;     // 75分制（= rawTotal，满分75）
   rawTotal: number;       // 原始 15-75
   level: number;
   levelName: string;
@@ -179,41 +179,32 @@ function getDimensionStatus(score: number): { status: 'established' | 'in_progre
   return { status: 'not_started', label: '未启动' };
 }
 
-// 成熟度定级
-function determineLevel(dimMap: Record<string, DimensionScore>): { level: number; subStage: string } {
-  const dims = ['strategy', 'scene', 'process', 'platform', 'business'];
-  const scores = dims.map(d => dimMap[d].score);
-
-  // L5: 全部已建立 (全部 ≥ 9)
-  if (scores[4] >= 9 && scores[3] >= 9 && scores[2] >= 9 && scores[1] >= 9 && scores[0] >= 9) {
-    if (scores[4] >= 12) return { level: 5, subStage: '突破' };
-    if (scores[4] >= 10) return { level: 5, subStage: '中期' };
+// 成熟度定级 — 总分区间查表（文档规则）
+function determineLevel(rawTotal: number): { level: number; subStage: string } {
+  if (rawTotal >= 68) {
+    if (rawTotal >= 73) return { level: 5, subStage: '突破' };
+    if (rawTotal >= 70) return { level: 5, subStage: '中期' };
     return { level: 5, subStage: '早期' };
   }
-
-  // L4: 前三项已建立，第四项（平台）进行中
-  if (scores[3] >= 5 && scores[2] >= 9 && scores[1] >= 9 && scores[0] >= 9) {
-    if (scores[3] >= 11) return { level: 4, subStage: '突破' };
-    if (scores[3] >= 8) return { level: 4, subStage: '中期' };
+  if (rawTotal >= 56) {
+    if (rawTotal >= 64) return { level: 4, subStage: '突破' };
+    if (rawTotal >= 60) return { level: 4, subStage: '中期' };
     return { level: 4, subStage: '早期' };
   }
-
-  // L3: 前两项已建立，第三项（流程）进行中
-  if (scores[2] >= 5 && scores[1] >= 9 && scores[0] >= 9) {
-    if (scores[2] >= 11) return { level: 3, subStage: '突破' };
-    if (scores[2] >= 8) return { level: 3, subStage: '中期' };
+  if (rawTotal >= 41) {
+    if (rawTotal >= 52) return { level: 3, subStage: '突破' };
+    if (rawTotal >= 48) return { level: 3, subStage: '中期' };
     return { level: 3, subStage: '早期' };
   }
-
-  // L2: 战略已建立，场景进行中
-  if (scores[1] >= 5 && scores[0] >= 7) {
-    if (scores[1] >= 11) return { level: 2, subStage: '突破' };
-    if (scores[1] >= 8) return { level: 2, subStage: '中期' };
+  if (rawTotal >= 26) {
+    if (rawTotal >= 37) return { level: 2, subStage: '突破' };
+    if (rawTotal >= 32) return { level: 2, subStage: '中期' };
     return { level: 2, subStage: '早期' };
   }
-
-  // L1: 战略至少进行中
-  return { level: 1, subStage: scores[0] >= 10 ? '已建立' : scores[0] >= 7 ? '中期' : '早期' };
+  // L1: 15-25
+  if (rawTotal >= 22) return { level: 1, subStage: '已建立' };
+  if (rawTotal >= 19) return { level: 1, subStage: '中期' };
+  return { level: 1, subStage: '早期' };
 }
 
 // 生成断层分析
@@ -390,12 +381,12 @@ export function generateReport(
     };
   }
 
-  // 定级
-  const { level, subStage } = determineLevel(dimMap);
+  // 定级 — 用 rawTotal 按总分区间查表
+  const { level, subStage } = determineLevel(rawTotal);
   const levelInfo = LEVELS[level - 1];
 
-  // 百分制（原始满分75 → 百分制）
-  const totalScore = Math.round((rawTotal / 75) * 100);
+  // 总分即 rawTotal（满分 75）
+  const totalScore = rawTotal;
 
   // 生成分析内容
   const gaps = generateGaps(dimMap, level);
